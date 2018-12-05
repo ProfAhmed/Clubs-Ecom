@@ -1,6 +1,7 @@
 package com.ecom.clubs;
 
 import android.Manifest;
+import android.arch.lifecycle.Observer;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -15,8 +16,11 @@ import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
 import android.util.Log;
+import android.view.View;
+import android.widget.RelativeLayout;
 import android.widget.Toast;
 
+import com.ecom.clubs.data.repositories.Repository;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.FusedLocationProviderClient;
@@ -49,6 +53,9 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     public static final int REQUEST_LOCATION_CODE = 99;
     double curr_latitude, curr_longitude;
     private LocationManager locationManager;
+    Repository repository;
+    View mapView;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,6 +64,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
+        mapView = mapFragment.getView();
         mapFragment.getMapAsync(this);
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
 
@@ -66,6 +74,29 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         } else {
             showGPSDisabledAlertToUser();
         }
+
+        repository = new Repository();
+
+        repository.getGovernments().observe(this, strings -> {
+
+            Log.v("Government", strings.toString());
+        });
+
+        repository.getCities("Cairo").observe(this, strings -> {
+
+            Log.v("Cities", strings.toString());
+        });
+
+        repository.getGames().observe(this, strings -> {
+
+            Log.v("Games", strings.toString());
+        });
+
+        repository.getClubs("Alex", "Football", new LatLng(30.4, 31.5), 200).observe(this, strings -> {
+
+            Log.v("Clubs", strings.toString());
+        });
+
     }
 
     @Override
@@ -80,6 +111,19 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                     android.Manifest.permission.ACCESS_COARSE_LOCATION}, REQUEST_LOCATION_CODE);
         }
         mMap.setOnMapClickListener(this);
+
+        if (mapView != null &&
+                mapView.findViewById(Integer.parseInt("1")) != null) {
+            // Get the button view
+            View locationButton = ((View) mapView.findViewById(Integer.parseInt("1")).getParent()).findViewById(Integer.parseInt("2"));
+            // and next place it, on bottom right (as Google Maps app)
+            RelativeLayout.LayoutParams layoutParams = (RelativeLayout.LayoutParams)
+                    locationButton.getLayoutParams();
+            // position on right bottom
+            layoutParams.addRule(RelativeLayout.ALIGN_PARENT_TOP, 0);
+            layoutParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, RelativeLayout.TRUE);
+            layoutParams.setMargins(0, 0, 30, 30);
+        }
     }
 
     @Override
@@ -91,22 +135,9 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                         if (client == null) {
                             bulidGoogleApiClient();
                         }
-                        mMap.setMyLocationEnabled(true);
-                        LocationListener mLocationListener = new LocationListener() {
-                            @Override
-                            public void onLocationChanged(Location location) {
-                                if (location != null) {
-                                    Toast.makeText(MainActivity.this, "I am Here " + location.toString(), Toast.LENGTH_SHORT).show();
-                                } else {
-                                    Toast.makeText(MainActivity.this, "I Null " + location.toString(), Toast.LENGTH_SHORT).show();
-
-                                }
-                            }
-                        };
-                        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000,
-                                5000, (android.location.LocationListener) mLocationListener);
                     }
-                    Toast.makeText(this, "granted", Toast.LENGTH_SHORT).show();
+
+
                 } else {
                     Toast.makeText(this, "Permission Denied", Toast.LENGTH_LONG).show();
                 }
@@ -175,6 +206,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         if (client != null) {
             LocationServices.FusedLocationApi.removeLocationUpdates(client, this);
             LatLng point = new LatLng(location.getLatitude(), location.getLongitude());
+
             marker(point);
         }
     }
@@ -188,6 +220,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     void marker(LatLng point) {
+
         MarkerOptions markerOptions = new MarkerOptions();
         markerOptions.position(point);
         markerOptions.title("You here");
