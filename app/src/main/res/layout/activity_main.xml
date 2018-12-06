@@ -39,13 +39,16 @@
             android:text="Button" />
 
         <EditText
-            android:id="@+id/editText"
+            android:id="@+id/etDistance"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight=".5"
             android:ems="10"
             android:hint="@string/distance"
+            android:imeOptions="actionDone"
             android:inputType="number"
+            android:lines="1"
+            android:singleLine="true"
             android:textAppearance="@style/Base.TextAppearance.AppCompat.Light.Widget.PopupMenu.Small"
             android:textSize="@dimen/_10sdp" />
 
@@ -56,6 +59,12 @@
             android:textAppearance="@style/Base.TextAppearance.AppCompat.Light.Widget.PopupMenu.Small"
             android:textSize="@dimen/_10sdp" />
     </LinearLayout>
+
+    <Button
+        android:id="@+id/btnOk"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/ok" />
 
     <fragment
         android:id="@+id/map"

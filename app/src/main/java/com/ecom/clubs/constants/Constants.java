@@ -6,10 +6,6 @@ import com.google.android.gms.maps.model.LatLng;
 import java.util.ArrayList;
 
 public class Constants {
-    public static String[] governments = {"Cairo", "Alex"};
-    public static String[] citiesCairo = {"Gisa", "6 October"};
-    public static String[] citiesAlex = {"a", "b"};
-    public static String[] gameName = {"Football", "Swimming"};
 
     static ArrayList<ClubModel> swimmingLocationsCairo = new ArrayList<>();
     static ArrayList<ClubModel> footballLocationsCairo = new ArrayList<>();
