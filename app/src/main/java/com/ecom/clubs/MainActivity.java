@@ -16,36 +16,30 @@ import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
-import android.telecom.RemoteConnection;
-import android.text.Editable;
-import android.text.TextUtils;
-import android.text.TextWatcher;
+
 import android.util.Log;
-import android.view.KeyEvent;
+
 import android.view.View;
-import android.view.inputmethod.EditorInfo;
+
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.RelativeLayout;
 import android.widget.Spinner;
-import android.widget.TextView;
 import android.widget.Toast;
 
+import com.ecom.clubs.data.models.ClubModel;
 import com.ecom.clubs.data.models.ClubRequestModel;
-import com.ecom.clubs.data.repositories.Repository;
+import com.ecom.clubs.events.EventClub;
 import com.ecom.clubs.viewmodels.CitiesViewModel;
 import com.ecom.clubs.viewmodels.ClubsViewModel;
 import com.ecom.clubs.viewmodels.GamesViewModel;
 import com.ecom.clubs.viewmodels.GovernmentViewModel;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -57,7 +51,8 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
-import com.google.android.gms.tasks.OnSuccessListener;
+
+import org.greenrobot.eventbus.EventBus;
 
 import java.util.ArrayList;
 
@@ -109,8 +104,11 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     private String governmentInput;
     private String cityInput;
     private String gameInput;
+    private boolean granted = false; // for prevent click map after granted
 
     View mapView; // for change Location ImageButton on map
+
+    private Marker marker;
 
 
     @Override
@@ -122,10 +120,13 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
+
         mapView = mapFragment.getView();
         mapFragment.getMapAsync(this);
 
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+
+        bulidGoogleApiClient();
 
         governmentViewModel = ViewModelProviders.of(this).get(GovernmentViewModel.class);
         citiesViewModel = ViewModelProviders.of(this).get(CitiesViewModel.class);
@@ -141,7 +142,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         } else {
             showGPSDisabledAlertToUser();
         }
-
     }
 
     @Override
@@ -149,7 +149,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         mMap = googleMap;
 
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            bulidGoogleApiClient();
             mMap.setMyLocationEnabled(true);
         } else {
             ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION,
@@ -178,26 +177,20 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         switch (requestCode) {
             case REQUEST_LOCATION_CODE:
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                        if (client == null) {
-                            bulidGoogleApiClient();
-                            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                                mMap.setMyLocationEnabled(true);
-                                LocationServices.FusedLocationApi.requestLocationUpdates(client, locationRequest, this);
-                            }
-                        }
 
+                    if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                        mMap.setMyLocationEnabled(true);
+                        LocationServices.FusedLocationApi.requestLocationUpdates(client, locationRequest, this);
                     }
-
                 } else {
-                    Toast.makeText(this, "Permission Denied", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, "Permission Denied" + "\n" + "Please Click on your locaion on map ", Toast.LENGTH_LONG).show();
                 }
         }
     }
 
-    protected synchronized void bulidGoogleApiClient() {
+    public void bulidGoogleApiClient() {
         client = new GoogleApiClient.Builder(this).addConnectionCallbacks(this).addOnConnectionFailedListener(this).addApi(LocationServices.API).build();
-        client.connect();
+
     }
 
 
@@ -264,9 +257,26 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public void onMapClick(LatLng point) {
 
-        Toast.makeText(this, "Point is" + point.toString(), Toast.LENGTH_SHORT).show();
-        marker(point);
+        if (granted == false) {
 
+            Toast.makeText(this, "Point is" + point.toString(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "" + point.toString(), Toast.LENGTH_SHORT).show();
+            Log.i("Location is", point.toString());
+            marker = mMap.addMarker(new MarkerOptions()
+                    .position(point)
+                    .title("You")
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+            marker.showInfoWindow();
+
+            if (client.isConnected()) {
+                LocationServices.FusedLocationApi.removeLocationUpdates(client, this);
+                updateMap(point);
+                marker(point);
+                granted = true;
+            } else {
+                Toast.makeText(this, "Client is not Connected", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     void marker(LatLng point) {
@@ -356,29 +366,52 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             @Override
             public void onClick(View v) {
                 if (etDistance.getText().length() > 0 && governmentsList.size() > 1 && citiesList.size() > 1 && gamesList.size() > 1) {
-                    double distance = Double.parseDouble(etDistance.getText().toString());
-                    ClubRequestModel request = new ClubRequestModel(governmentInput, cityInput, gameInput, point, distance);
-                    clubsViewModel.setClubRequest(request);
-                    clubsViewModel.getClubs().observe(MainActivity.this, clubs -> {
+                    if (point == null) {
+                        Toast.makeText(MainActivity.this, "Click on yor location on map", Toast.LENGTH_SHORT).show();
+                    } else {
+                        double distance = Double.parseDouble(etDistance.getText().toString());
+                        ClubRequestModel request = new ClubRequestModel(governmentInput, cityInput, gameInput, point, distance);
+                        clubsViewModel.setClubRequest(request);
+                        clubsViewModel.getClubs().observe(MainActivity.this, clubs -> {
 
-                        LatLngBounds.Builder builder = new LatLngBounds.Builder();
+                            LatLngBounds.Builder builder = new LatLngBounds.Builder();
 
-                        for (int i = 0; i < clubs.size(); i++) {
-                            MarkerOptions markerOptions = new MarkerOptions();
-                            markerOptions.position(clubs.get(i).getLatLng());
-                            markerOptions.title(clubs.get(i).getName());
-                            markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
-                            mMap.addMarker(markerOptions);
-                            builder.include(markerOptions.getPosition());
-                        }
-                        LatLngBounds bounds = builder.build();
-                        int padding = 5; // offset from edges of the map in pixels
-                        CameraUpdate cu = CameraUpdateFactory.newLatLngBounds(bounds,  padding);
-                        mMap.animateCamera(cu);
+                            for (int i = 0; i < clubs.size(); i++) {
+                                marker = mMap.addMarker(new MarkerOptions()
+                                        .position(clubs.get(i).getLatLng())
+                                        .title(clubs.get(i).getName())
+                                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)));
 
-                        Toast.makeText(MainActivity.this, clubs.toString(), Toast.LENGTH_SHORT).show();
-                        Log.v("Clubs", clubs.toString());
-                    });
+                                builder.include(marker.getPosition());
+
+                                marker.setTag(clubs.get(i));
+                            }
+                            if (marker != null) {
+                                LatLngBounds bounds = builder.build();
+                                int padding = 20; // offset from edges of the map in pixels
+                                CameraUpdate cu = CameraUpdateFactory.newLatLngBounds(bounds, padding);
+                                mMap.animateCamera(cu);
+                                mMap.setOnInfoWindowClickListener(new GoogleMap.OnInfoWindowClickListener() {
+                                    @Override
+                                    public void onInfoWindowClick(Marker marker) {
+                                        Toast.makeText(MainActivity.this, marker.getTag().toString(), Toast.LENGTH_SHORT).show();
+
+                                        // We are broadcasting the message here to listen to the subscriber.
+                                        EventClub event = new EventClub((ClubModel) marker.getTag());
+                                        EventBus.getDefault().postSticky(event);
+                                        startActivity(new Intent(MainActivity.this, ClubDetailsActivity.class));
+                                    }
+                                });
+
+                                marker = null;
+                                Toast.makeText(MainActivity.this, clubs.toString(), Toast.LENGTH_SHORT).show();
+                                Log.v("Clubs", clubs.toString());
+                            } else {
+                                Toast.makeText(MainActivity.this, "No places available ", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+
+                    }
                 } else {
                     Toast.makeText(MainActivity.this, "Please Enter All Data ", Toast.LENGTH_SHORT).show();
                 }
@@ -417,4 +450,20 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         spGame.setAdapter(dataAdapterGames);
     }
 
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (client != null) {
+            client.connect();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (client.isConnected()) {
+            client.disconnect();
+            LocationServices.FusedLocationApi.removeLocationUpdates(client, this);
+        }
+    }
 }

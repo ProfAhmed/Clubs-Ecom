@@ -7,4 +7,9 @@
     <string name="city">City</string>
     <string name="code">Game</string>
     <string name="ok">OK</string>
+    <string name="club_name">Name</string>
+    <string name="club_phone">Phone</string>
+    <string name="club_address">Address</string>
+    <string name="directions">Directions</string>
+    <string name="title_activity_directions">Map</string>
 </resources>
