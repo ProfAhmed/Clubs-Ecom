@@ -31,6 +31,8 @@ dependencies {
 
     //play services
     implementation 'com.google.android.gms:play-services-maps:16.0.0'
+    implementation 'com.google.maps:google-maps-services:0.1.20'
+
     implementation 'com.google.android.gms:play-services-location:16.0.0'
     implementation 'com.akexorcist:googledirectionlibrary:1.1.1'
 

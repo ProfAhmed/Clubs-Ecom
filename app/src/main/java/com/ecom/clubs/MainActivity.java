@@ -21,6 +21,7 @@ import android.util.Log;
 
 import android.view.View;
 
+import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -158,6 +159,11 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.setOnMapClickListener(this);
 
         // change Location ImageButton on map
+        cahngeLocationButton(mapView);
+
+    }
+
+    private void cahngeLocationButton(View mapView) {
         if (mapView != null &&
                 mapView.findViewById(Integer.parseInt("1")) != null) {
             // Get the button view
@@ -242,6 +248,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
     @Override
     public void onLocationChanged(Location location) {
+        granted = true;
         curr_latitude = location.getLatitude();
         curr_longitude = location.getLongitude();
         Toast.makeText(this, "" + location.toString(), Toast.LENGTH_SHORT).show();
@@ -404,6 +411,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                                 });
 
                                 marker = null;
+                                hideSoftKeyboard();
                                 Toast.makeText(MainActivity.this, clubs.toString(), Toast.LENGTH_SHORT).show();
                                 Log.v("Clubs", clubs.toString());
                             } else {
@@ -450,6 +458,13 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         spGame.setAdapter(dataAdapterGames);
     }
 
+    public void hideSoftKeyboard() {
+        if (getCurrentFocus() != null) {
+            InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            inputMethodManager.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(), 0);
+        }
+    }
+
     @Override
     protected void onStart() {
         super.onStart();
@@ -462,8 +477,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     protected void onDestroy() {
         super.onDestroy();
         if (client.isConnected()) {
-            client.disconnect();
             LocationServices.FusedLocationApi.removeLocationUpdates(client, this);
+            client.disconnect();
         }
     }
 }
