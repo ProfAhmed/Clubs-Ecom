@@ -80,10 +80,10 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     @BindView(R.id.btnOk)
     Button btnOk;
 
-    GovernmentViewModel governmentViewModel;
-    CitiesViewModel citiesViewModel;
-    GamesViewModel gamesViewModel;
-    ClubsViewModel clubsViewModel;
+    private GovernmentViewModel governmentViewModel;
+    private CitiesViewModel citiesViewModel;
+    private GamesViewModel gamesViewModel;
+    private ClubsViewModel clubsViewModel;
 
     private GoogleMap mMap;
     private GoogleApiClient client;
@@ -107,7 +107,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     private String gameInput;
     private boolean granted = false; // for prevent click map after granted
 
-    View mapView; // for change Location ImageButton on map
+    private View mapView; // for change Location ImageButton on map
 
     private Marker marker;
 
@@ -138,11 +138,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
         initAdapter();
 
-        if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-            Toast.makeText(this, "GPS is Enabled in your device", Toast.LENGTH_SHORT).show();
-        } else {
-            showGPSDisabledAlertToUser();
-        }
     }
 
     @Override
@@ -150,7 +145,14 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         mMap = googleMap;
 
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            mMap.setMyLocationEnabled(true);
+
+            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                Toast.makeText(this, "GPS is Enabled in your device", Toast.LENGTH_SHORT).show();
+                mMap.setMyLocationEnabled(true);
+            } else {
+                showGPSDisabledAlertToUser();
+            }
+
         } else {
             ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION,
                     android.Manifest.permission.ACCESS_COARSE_LOCATION}, REQUEST_LOCATION_CODE);
@@ -185,8 +187,14 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
 
                     if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                        mMap.setMyLocationEnabled(true);
-                        LocationServices.FusedLocationApi.requestLocationUpdates(client, locationRequest, this);
+
+                        if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                            Toast.makeText(this, "GPS is Enabled in your device", Toast.LENGTH_SHORT).show();
+                            mMap.setMyLocationEnabled(true);
+                            LocationServices.FusedLocationApi.requestLocationUpdates(client, locationRequest, this);
+                        } else {
+                            showGPSDisabledAlertToUser();
+                        }
                     }
                 } else {
                     Toast.makeText(this, "Permission Denied" + "\n" + "Please Click on your locaion on map ", Toast.LENGTH_LONG).show();
@@ -209,7 +217,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                             public void onClick(DialogInterface dialog, int id) {
                                 Intent callGPSSettingIntent = new Intent(
                                         android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS);
-                                startActivity(callGPSSettingIntent);
+                                startActivityForResult(callGPSSettingIntent, 11);
                             }
                         });
         alertDialogBuilder.setNegativeButton("Cancel",
@@ -221,6 +229,18 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 });
         AlertDialog alert = alertDialogBuilder.create();
         alert.show();
+
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+
+            return;
+        }
+        mMap.setMyLocationEnabled(true);
+        LocationServices.FusedLocationApi.requestLocationUpdates(client, locationRequest, this);
 
     }
 
@@ -393,7 +413,9 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
                                 marker.setTag(clubs.get(i));
                             }
-                            if (marker != null) {
+
+                            // handle if no points available
+                            try {
                                 LatLngBounds bounds = builder.build();
                                 int padding = 20; // offset from edges of the map in pixels
                                 CameraUpdate cu = CameraUpdateFactory.newLatLngBounds(bounds, padding);
@@ -414,8 +436,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                                 hideSoftKeyboard();
                                 Toast.makeText(MainActivity.this, clubs.toString(), Toast.LENGTH_SHORT).show();
                                 Log.v("Clubs", clubs.toString());
-                            } else {
-                                Toast.makeText(MainActivity.this, "No places available ", Toast.LENGTH_SHORT).show();
+                            } catch (IllegalStateException e) {
+                                Toast.makeText(MainActivity.this, "No places available", Toast.LENGTH_SHORT).show();
                             }
                         });
 

@@ -1,5 +1,6 @@
 package com.ecom.clubs;
 
+import android.Manifest;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -25,6 +26,7 @@ import com.akexorcist.googledirection.constant.AvoidType;
 import com.akexorcist.googledirection.model.Direction;
 
 import com.akexorcist.googledirection.model.Leg;
+import com.akexorcist.googledirection.model.Step;
 import com.akexorcist.googledirection.util.DirectionConverter;
 import com.ecom.clubs.data.models.ClubModel;
 import com.ecom.clubs.events.EventClub;
@@ -57,7 +59,7 @@ import java.util.concurrent.TimeUnit;
 
 public class DirectionsActivity extends FragmentActivity implements OnMapReadyCallback,
         GoogleApiClient.OnConnectionFailedListener,
-        GoogleApiClient.ConnectionCallbacks,
+        GoogleApiClient.ConnectionCallbacks, GoogleMap.OnMapClickListener,
         LocationListener {
 
     private GoogleMap mMap;
@@ -92,11 +94,7 @@ public class DirectionsActivity extends FragmentActivity implements OnMapReadyCa
 
         bulidGoogleApiClient();
 
-        if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-            Toast.makeText(this, "GPS is Enabled in your device", Toast.LENGTH_SHORT).show();
-        } else {
-            showGPSDisabledAlertToUser();
-        }
+
     }
 
 
@@ -114,7 +112,14 @@ public class DirectionsActivity extends FragmentActivity implements OnMapReadyCa
         mMap = googleMap;
 
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            mMap.setMyLocationEnabled(true);
+
+            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                Toast.makeText(this, "GPS is Enabled in your device", Toast.LENGTH_SHORT).show();
+                mMap.setMyLocationEnabled(true);
+            } else {
+                showGPSDisabledAlertToUser();
+            }
+
         } else {
             ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION,
                     android.Manifest.permission.ACCESS_COARSE_LOCATION}, REQUEST_LOCATION_CODE);
@@ -171,7 +176,7 @@ public class DirectionsActivity extends FragmentActivity implements OnMapReadyCa
                             public void onClick(DialogInterface dialog, int id) {
                                 Intent callGPSSettingIntent = new Intent(
                                         android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS);
-                                startActivity(callGPSSettingIntent);
+                                startActivityForResult(callGPSSettingIntent, 11);
                             }
                         });
         alertDialogBuilder.setNegativeButton("Cancel",
@@ -183,6 +188,25 @@ public class DirectionsActivity extends FragmentActivity implements OnMapReadyCa
                 });
         AlertDialog alert = alertDialogBuilder.create();
         alert.show();
+
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return;
+        }
+        mMap.setMyLocationEnabled(true);
+        LocationServices.FusedLocationApi.requestLocationUpdates(client, locationRequest, this);
 
     }
 
@@ -222,7 +246,17 @@ public class DirectionsActivity extends FragmentActivity implements OnMapReadyCa
                 drawDirections(point);
                 firstDraw = false;
             }
+        }
+    }
 
+    @Override
+    public void onMapClick(LatLng point) {
+        Toast.makeText(this, "" + point.toString(), Toast.LENGTH_SHORT).show();
+        if (client != null) {
+            if (firstDraw) {
+                drawDirections(point);
+                firstDraw = false;
+            }
         }
     }
 
@@ -244,12 +278,19 @@ public class DirectionsActivity extends FragmentActivity implements OnMapReadyCa
                     public void onDirectionSuccess(Direction direction, String rawBody) {
                         if (direction.isOK()) {
                             Toast.makeText(DirectionsActivity.this, "Succsess Directions", Toast.LENGTH_SHORT).show();
-                            Leg leg = direction.getRouteList().get(0).getLegList().get(0);
+                           /* Leg leg = direction.getRouteList().get(0).getLegList().get(0);
+
 
                             ArrayList<LatLng> directionPositionList = leg.getDirectionPoint();
                             PolylineOptions polylineOptions = DirectionConverter.createPolyline(DirectionsActivity.this, directionPositionList, 5, Color.RED);
-                            mMap.addPolyline(polylineOptions);
+                            mMap.addPolyline(polylineOptions);*/
 
+
+                            List<Step> stepList = direction.getRouteList().get(0).getLegList().get(0).getStepList();
+                            ArrayList<PolylineOptions> polylineOptionList = DirectionConverter.createTransitPolyline(DirectionsActivity.this, stepList, 5, Color.RED, 3, Color.BLUE);
+                            for (PolylineOptions polylineOption : polylineOptionList) {
+                                mMap.addPolyline(polylineOption);
+                            }
 
                         } else {
                             if (direction != null) {
